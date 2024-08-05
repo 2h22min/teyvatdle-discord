@@ -98,10 +98,9 @@ class MyClient(discord.Client):
 
             case _:
                 if message.channel == tdle.channel:
-                    if message.channel == tdle.channel:
-                        reply = await tdle.guess(message)
-                        if reply:
-                            await message.add_reaction('⭐')
+                    reply = await tdle.guess(message)
+                    if reply:
+                        await message.add_reaction('⭐')
 
         if reply:
             await message.channel.send(reply)
