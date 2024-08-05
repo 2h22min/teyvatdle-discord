@@ -90,17 +90,30 @@ class MyClient(discord.Client):
                 else:
                     tdle.start(message)
 
-            case 'i give up':
+            case 'i give up' | 'igu':
                 if message.channel == tdle.channel and message.author in tdle.players:
                     await message.channel.send('lmao ok')
                     await tdle.respond(tdle.character.name)
                     tdle.channel = None
 
             case _:
-                if message.channel == tdle.channel:
-                    reply = await tdle.guess(message)
-                    if reply:
-                        await message.add_reaction('⭐')
+                msg_args = message.content.lower().split()
+                if "help" in msg_args:
+                    h = ["help"]
+                    if any(arg not in h for arg in msg_args):
+                        if not any(arg not in h+["tdle","teyvatdle"] for arg in msg_args):
+                            reply = """Guess a character from Teyvat (Genshin Impact) by typing their names!\
+                            \nThe characteristics of each guess will be colored like this:\
+                            \n> 🟩 GREEN squares = correct characteristics (in common)
+                                > 🟨 YELLOW squares = "close" characteristics
+                                > 🟥 RED squares = incorrect characteristics"""
+                else:
+                    match msg_args[0]:    
+                        case _:
+                            if message.channel == tdle.channel:
+                                reply = await tdle.guess(message)
+                                if reply:
+                                    await message.add_reaction('⭐')
 
         if reply:
             await message.channel.send(reply)
