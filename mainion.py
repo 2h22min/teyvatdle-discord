@@ -87,6 +87,8 @@ class MyClient(discord.Client):
                 if message.channel == tdle.channel:
                     if message.author in tdle.players:
                         reply = 'say "i give up" before guessing another character'
+                    else:
+                        reply += " (game already started)"
                 else:
                     tdle.start(message)
 
@@ -108,7 +110,7 @@ class MyClient(discord.Client):
                                 > 🟨 YELLOW squares = "close" characteristics
                                 > 🟥 RED squares = incorrect characteristics"""
                 else:
-                    match msg_args[0]:    
+                    match message.content:    
                         case _:
                             if message.channel == tdle.channel:
                                 reply = await tdle.guess(message)
