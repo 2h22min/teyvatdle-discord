@@ -1,7 +1,10 @@
 import os
 import time
 import discord
+from discord import app_commands
 import teyvatdle as tvd
+
+GUILD_ID = os.getenv('GUILD_ID') # debugging server id
 
 class Teyvatdle:
     def __init__(self):
@@ -66,62 +69,72 @@ Guessed after {int(self.end_time-self.start_time)} seconds and {self.attempts} a
         return comparison
 
 
-class MyClient(discord.Client):
-    async def on_ready(self):
-        print('Logged on as', self.user)
-
-    async def on_message(self, message):
-        # don't respond to ourselves
-        if message.author == self.user:
-            return
-        reply = False
-
-        match message.content.lower():
-            case 'ping':
-                reply = 'pong'
-            case 'pong':
-                reply = 'ping'
-
-            case 'teyvatdle' | 'tdle':
-                reply = 'guess the character from Teyvat !'
-                if message.channel == tdle.channel:
-                    if message.author in tdle.players:
-                        reply = 'say "i give up" before guessing another character'
-                else:
-                    tdle.start(message)
-
-            case 'i give up' | 'igu':
-                if message.channel == tdle.channel and message.author in tdle.players:
-                    await message.channel.send('lmao ok')
-                    await tdle.respond(tdle.character.name)
-                    tdle.channel = None
-
-            case _:
-                msg_args = message.content.lower().split()
-                if "help" in msg_args:
-                    h = ["help"]
-                    if any(arg not in h for arg in msg_args):
-                        if not any(arg not in h+["tdle","teyvatdle"] for arg in msg_args):
-                            reply = """Guess a character from Teyvat (Genshin Impact) by typing their names!\
-                            \nThe characteristics of each guess will be colored like this:\
-                            \n> 🟩 GREEN squares = correct characteristics (in common)
-                                > 🟨 YELLOW squares = "close" characteristics
-                                > 🟥 RED squares = incorrect characteristics"""
-                else:
-                    match msg_args[0]:    
-                        case _:
-                            if message.channel == tdle.channel:
-                                reply = await tdle.guess(message)
-                                if reply:
-                                    await message.add_reaction('⭐')
-
-        if reply:
-            await message.channel.send(reply)
-
 tdle = Teyvatdle()
-
 intents = discord.Intents.default()
 intents.message_content = True
+client = discord.Client(intents=intents)
+tree = app_commands.CommandTree(client)
 
-client = MyClient(intents=intents)
+@tree.command(
+    name="ping",
+    description="pong",
+    # guild=discord.Object(id=GUILD_ID)
+)
+async def ping(interaction):
+    await interaction.response.send_message("pong")
+
+
+@client.event
+async def on_ready():
+    # await tree.sync(guild=discord.Object(id=GUILD_ID))
+    await tree.sync()
+    print("Logged on as", client.user)
+
+@client.event
+async def on_message(message):
+    # don't respond to ourselves
+    if message.author == client.user:
+        return
+    reply = False
+
+    match message.content.lower():
+        case 'teyvatdle' | 'tdle':
+            reply = 'guess the character from Teyvat !'
+            if message.channel == tdle.channel:
+                if message.author in tdle.players:
+                    reply = 'say "i give up" before guessing another character'
+                else:
+                    reply += " (game already started)"
+            else:
+                tdle.start(message)
+
+        case 'i give up' | 'igu':
+            if message.channel == tdle.channel and message.author in tdle.players:
+                await message.channel.send('lmao ok')
+                await tdle.respond(tdle.character.name)
+                tdle.channel = None
+
+        case _:
+            msg_args = message.content.lower().split()
+            if "help" in msg_args:
+                h = ["help"]
+                if any(arg not in h for arg in msg_args):
+                    if not any(arg not in h+["tdle","teyvatdle"] for arg in msg_args):
+                        reply = """Guess a character from Teyvat (Genshin Impact) by typing their names!\
+                        \nThe characteristics of each guess will be colored like this:\
+                        \n> 🟩 GREEN squares = correct characteristics (in common)
+                            > 🟨 YELLOW squares = "close" characteristics
+                            > 🟥 RED squares = incorrect characteristics"""
+            else:
+                match message.content:  
+                    case _:
+                        if message.channel == tdle.channel:
+                            reply = await tdle.guess(message)
+                            if reply:
+                                await message.add_reaction('⭐')
+
+    if reply:
+        await message.channel.send(reply)
+
+
 client.run(os.getenv('DISCORD_TOKEN'))
