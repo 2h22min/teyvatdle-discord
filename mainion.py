@@ -7,6 +7,12 @@ import teyvatdle as tvd
 GUILD_ID = os.getenv('GUILD_ID') # debugging server id
 
 class Teyvatdle:
+    help = """Guess a character from Teyvat (Genshin Impact) by typing their names!\
+            \nThe characteristics of each guess will be colored like this:\
+            \n> 🟩 GREEN squares = correct characteristics (in common)
+                > 🟨 YELLOW squares = "close" characteristics
+                > 🟥 RED squares = incorrect characteristics"""
+
     def __init__(self):
         self.channel = None
 
@@ -80,8 +86,28 @@ tree = app_commands.CommandTree(client)
     description="pong",
     # guild=discord.Object(id=GUILD_ID)
 )
-async def ping(interaction):
-    await interaction.response.send_message("pong")
+async def ping(interaction: discord.Interaction):
+    await interaction.response.send_message(f'pong (in {round(client.latency * 1000)}ms)')
+
+@tree.command(
+    name="help",
+    description="displays help information"
+)
+@app_commands.describe(command = "about a specific command")
+@app_commands.choices(command=[
+    app_commands.Choice(name="teyvatdle", value="tdle"),
+    app_commands.Choice(name="other", value="other"),
+    ])
+async def help(interaction: discord.Interaction, command: app_commands.Choice[str] | None):
+    if command is None:
+        help = """This is a silly little bot in development. It currently includes a Wordle-like character guessing game of Genshin Impact ("Teyvatdle")"""
+    else:
+        match command.value:
+            case "tdle":
+                help = Teyvatdle.help
+            case "other":
+                help = ":)"
+    await interaction.response.send_message(help, ephemeral=True)
 
 
 @client.event
@@ -120,11 +146,7 @@ async def on_message(message):
                 h = ["help"]
                 if any(arg not in h for arg in msg_args):
                     if not any(arg not in h+["tdle","teyvatdle"] for arg in msg_args):
-                        reply = """Guess a character from Teyvat (Genshin Impact) by typing their names!\
-                        \nThe characteristics of each guess will be colored like this:\
-                        \n> 🟩 GREEN squares = correct characteristics (in common)
-                            > 🟨 YELLOW squares = "close" characteristics
-                            > 🟥 RED squares = incorrect characteristics"""
+                        reply = Teyvatdle.help
             else:
                 match message.content:  
                     case _:
