@@ -13,13 +13,27 @@ class Teyvatdle:
                 > 🟨 YELLOW squares = "close" characteristics
                 > 🟥 RED squares = incorrect characteristics"""
 
-    def __init__(self, message):
-        self.channel = message.channel
+    @staticmethod
+    def command(channel, user):
+        reply = 'guess the character from Teyvat !'
+        for tdle in tdle_games:
+            if channel == tdle.channel:
+                if user in tdle.players:
+                    reply = 'say "i give up" before guessing another character'
+                else:
+                    reply += " (game already started in this channel)"
+                break
+        else:
+            tdle_games.append(Teyvatdle(channel, user))
+        return reply
+
+    def __init__(self, channel, user):
+        self.channel = channel
         self.start_time = time.time()
         self.attempts = 0
         self.score = ""
         self.character = tvd.Character.random()
-        self.players = [message.author]
+        self.players = [user]
 
     async def guess(self, message):
         char_name = tvd.Character.exists(message.content)
@@ -108,6 +122,13 @@ async def help(interaction: discord.Interaction, command: app_commands.Choice[st
                 help = ":)"
     await interaction.response.send_message(help, ephemeral=True)
 
+@tree.command(
+    name="teyvatdle",
+    description="start a teyvatdle game",
+)
+async def tdle(interaction: discord.Interaction):
+    await interaction.response.send_message( Teyvatdle.command(interaction.channel, interaction.user))
+
 
 @client.event
 async def on_ready():
@@ -124,16 +145,7 @@ async def on_message(message):
 
     match message.content.lower():
         case 'teyvatdle' | 'tdle':
-            reply = 'guess the character from Teyvat !'
-            for tdle in tdle_games:
-                if message.channel == tdle.channel:
-                    if message.author in tdle.players:
-                        reply = 'say "i give up" before guessing another character'
-                    else:
-                        reply += " (game already started in this channel)"
-                    break
-            else:
-                tdle_games.append(Teyvatdle(message))
+            reply = Teyvatdle.command(message.channel, message.author)
 
         case 'i give up' | 'igu':
             for tdle in tdle_games:
