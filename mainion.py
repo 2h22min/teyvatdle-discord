@@ -14,17 +14,61 @@ class Teyvatdle:
                 > 🟥 RED squares = incorrect characteristics"""
 
     @staticmethod
-    def command(channel, user):
-        reply = 'guess the character from Teyvat !'
-        for tdle in tdle_games:
-            if channel == tdle.channel:
-                if user in tdle.players:
-                    reply = 'say "i give up" before guessing another character'
-                else:
-                    reply += " (game already started in this channel)"
-                break
+    async def command(com, type = 0):
+        """Handle potential commands related to the game,
+        checking the channel and user who sent it.
+        
+        Args:
+            com (Union[Interaction, Message]): The potential command.
+            type (int, optional): The type of potential command:\
+                0 (start game) | 1 (guess attempt) | 2 (give up/force end).
+            
+        Returns:
+            The bot's reply `str` if any, False otherwise.
+        """
+
+        channel = com.channel
+        if isinstance(com, discord.interactions.Interaction):
+            user = com.user
         else:
-            tdle_games.append(Teyvatdle(channel, user))
+            user = com.author
+            
+        if type:
+            reply = False
+        else:
+            reply = 'guess the character from Teyvat !'
+
+        for tdle in tdle_games:
+            if channel != tdle.channel:
+                continue
+
+            end_game = False
+            match type:
+                case 0:
+                    # If start game command
+                    reply += " (game already started in this channel)"
+                case 1:
+                    # If potential guess attempt
+                    reply = await tdle.guess(com)
+                    if reply:
+                        await com.add_reaction('⭐')
+                        end_game = True
+            if user in tdle.players:
+                match type:
+                    case 0:
+                        reply = 'say "i give up" before guessing another character'
+                    case 2:
+                        await channel.send('lmao ok')
+                        await tdle.respond(tdle.character.name)
+                        end_game = True
+
+            if end_game:
+                tdle_games.remove(tdle)
+            break
+        else:
+            if type == 0:
+                tdle_games.append(Teyvatdle(channel, user))
+                
         return reply
 
     def __init__(self, channel, user):
@@ -66,7 +110,7 @@ class Teyvatdle:
             duration = int( end_time - self.start_time)
             winner = message.author.name
             
-            reply = f"{winner} is correct!\n{self.score}\
+            reply = f"{winner} is correct!\n{self.score[-140:]}\
 Guessed after {duration} seconds and {self.attempts} attempts"
             if self.attempts < 10:
                 reply += " :)"
@@ -127,7 +171,7 @@ async def help(interaction: discord.Interaction, command: app_commands.Choice[st
     description="start a teyvatdle game",
 )
 async def tdle(interaction: discord.Interaction):
-    await interaction.response.send_message( Teyvatdle.command(interaction.channel, interaction.user))
+    await interaction.response.send_message(await Teyvatdle.command(interaction))
 
 
 @client.event
@@ -145,15 +189,10 @@ async def on_message(message):
 
     match message.content.lower():
         case 'teyvatdle' | 'tdle':
-            reply = Teyvatdle.command(message.channel, message.author)
+            reply = await Teyvatdle.command(message)
 
         case 'i give up' | 'igu':
-            for tdle in tdle_games:
-                if message.channel == tdle.channel and message.author in tdle.players:
-                    await message.channel.send('lmao ok')
-                    await tdle.respond(tdle.character.name)
-                    del tdle_games[tdle_games.index(tdle)]
-                    break
+            await Teyvatdle.command(message, 2)
 
         case _:
             msg_args = message.content.lower().split()
@@ -165,13 +204,7 @@ async def on_message(message):
             else:
                 match message.content:  
                     case _:
-                        for tdle in tdle_games:
-                            if message.channel == tdle.channel:
-                                reply = await tdle.guess(message)
-                                if reply:
-                                    await message.add_reaction('⭐')
-                                    del tdle_games[tdle_games.index(tdle)]
-                                break
+                        reply = await Teyvatdle.command(message, 1)
     
     if reply:
         await message.channel.send(reply)
