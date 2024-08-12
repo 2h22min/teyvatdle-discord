@@ -32,41 +32,50 @@ class Teyvatdle:
             user = com.user
         else:
             user = com.author
-            
+
         if type:
             reply = False
         else:
             reply = 'guess the character from Teyvat !'
 
+        ingame_replies = {
+            # Default replies when a game is already active in the channel.
+            # `False` keys for users that aren't players yet and viceversa.
+            0: {False: str(reply) + ' (game already started in this channel)',
+                True: 'say "i give up" before guessing another character'},
+
+            1: {False: False,
+                True: False},
+
+            2: {False: "don't give up without even trying!",
+                True: False},
+
+            }
         for tdle in tdle_games:
             if channel != tdle.channel:
                 continue
 
-            end_game = False
-            match type:
-                case 0:
-                    # If start game command
-                    reply += " (game already started in this channel)"
-                case 1:
-                    # If potential guess attempt
-                    reply = await tdle.guess(com)
-                    if reply:
-                        await com.add_reaction('⭐')
-                        end_game = True
-            if user in tdle.players:
-                match type:
-                    case 0:
-                        reply = 'say "i give up" before guessing another character'
-                    case 2:
-                        await channel.send('lmao ok')
-                        await tdle.respond(tdle.character.name)
-                        end_game = True
+            reply = ingame_replies[type][user in tdle.players]
 
+            end_game = False
+            if type == 1:
+                # If potential guess attempt
+                reply = await tdle.guess(com)
+                if reply:
+                    await com.add_reaction('⭐')
+                    end_game = True
+
+            elif type == 2 and user in tdle.players:
+                await channel.send('lmao ok')
+                await tdle.respond(tdle.character.name)
+                end_game = True
+            
             if end_game:
                 tdle_games.remove(tdle)
             break
-        else:
-            if type == 0:
+
+        else: # When no game is active in the context channel
+            if type == 0: # Start new game
                 tdle_games.append(Teyvatdle(channel, user))
                 
         return reply
@@ -192,7 +201,7 @@ async def on_message(message):
             reply = await Teyvatdle.command(message)
 
         case 'i give up' | 'igu':
-            await Teyvatdle.command(message, 2)
+            reply = await Teyvatdle.command(message, 2)
 
         case _:
             msg_args = message.content.lower().split()
