@@ -75,6 +75,11 @@ class Teyvatdle:
                     reply = False
                     end_game = True
 
+                    try:
+                        tdle.streak["wins"] += 1
+                    except AttributeError:
+                        pass
+
             elif type == 2 and user in tdle.players:
                 await channel.send('lmao ok')
                 await tdle.respond(tdle.character.name)
@@ -85,13 +90,24 @@ class Teyvatdle:
                     reply = False
                 elif user in tdle.players:
                     tdle.endless = False
+                    tdle.streak["last_game"] = True
             
             if end_game:
                 if tdle.endless:
                     # Start next game if it was "endless"
                     Teyvatdle.games.append(Teyvatdle(channel, user, True))
+                    Teyvatdle.games[-1].streak = tdle.streak
+
                     await channel.send('> -# *Send "stop" to turn off endless mode*')
                     reply = Teyvatdle.start_reply
+                else:
+                    try:
+                        if tdle.streak["last_game"]:
+                            await channel.send(
+                                f'*{tdle.streak["wins"]} character(s) guessed in "endless" game started <t:{tdle.streak["start_time"]}:R>!*'
+                            )
+                    except AttributeError:
+                        pass
                 Teyvatdle.games.remove(tdle)
             break
 
@@ -103,6 +119,12 @@ class Teyvatdle:
                 except (KeyError, AttributeError):
                     pass
                 Teyvatdle.games.append(Teyvatdle(channel, user, endless))
+                if endless:
+                    Teyvatdle.games[-1].streak = {
+                        "start_time":int(time.time()),
+                        "wins":0,
+                        "last_game": False,
+                    }
                 
         return reply
 
