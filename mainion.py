@@ -7,6 +7,8 @@ import teyvatdle as tvd
 GUILD_ID = os.getenv('GUILD_ID') # debugging server id
 
 class Teyvatdle:
+    games = []
+
     start_reply = 'guess the character from Teyvat !'
 
     help = """Guess a character from Teyvat (Genshin Impact) by typing their names!\
@@ -57,7 +59,7 @@ class Teyvatdle:
                 True: "> -# **endless mode turned off**"},
 
             }
-        for tdle in tdle_games:
+        for tdle in Teyvatdle.games:
             if channel != tdle.channel:
                 continue
 
@@ -87,10 +89,10 @@ class Teyvatdle:
             if end_game:
                 if tdle.endless:
                     # Start next game if it was "endless"
-                    tdle_games.append(Teyvatdle(channel, user, True))
+                    Teyvatdle.games.append(Teyvatdle(channel, user, True))
                     await channel.send('> -# *Send "stop" to turn off endless mode*')
                     reply = Teyvatdle.start_reply
-                tdle_games.remove(tdle)
+                Teyvatdle.games.remove(tdle)
             break
 
         else: # When no game is active in the context channel
@@ -100,7 +102,7 @@ class Teyvatdle:
                     endless = bool(options["endless"].value)
                 except (KeyError, AttributeError):
                     pass
-                tdle_games.append(Teyvatdle(channel, user, endless))
+                Teyvatdle.games.append(Teyvatdle(channel, user, endless))
                 
         return reply
 
@@ -165,7 +167,29 @@ Guessed after {duration} seconds and {self.attempts} attempts"
         return comparison
 
 
-tdle_games = []
+class Games:
+    active = {
+        "tdle": Teyvatdle.games,
+    }
+
+    async def off_endless(com):
+        """Turn off endless mode for current game in the channel.
+        
+        Args:
+            com (Union[Interaction, Message]): The "stop" command.
+        """
+        for games in Games.active:
+            for game in Games.active[games]:
+                if game.channel != com.channel:
+                    continue
+                
+                reply = await game.command(com, 3)
+                try:
+                    await com.response.send_message(reply)
+                except AttributeError:
+                    return reply
+                return False
+
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -225,7 +249,7 @@ async def tdle(interaction: discord.Interaction, endless: app_commands.Choice[st
                 type=discord.ChannelType.public_thread,
                 reason="for a Teyvatdle game"
             )
-            tdle_games[-1].channel = new_channel
+            Teyvatdle.games[-1].channel = new_channel
     except AttributeError:
         pass
 
@@ -234,15 +258,7 @@ async def tdle(interaction: discord.Interaction, endless: app_commands.Choice[st
     description="turn off endless mode for current game",
 )
 async def stop(interaction: discord.Interaction):
-    for games in [tdle_games]:
-        for game in games:
-            if game.channel != interaction.channel:
-                continue
-            
-            await interaction.response.send_message(
-                await game.command(interaction, 3)
-            )
-            break
+    await Games.off_endless(interaction)
 
 
 @client.event
@@ -266,7 +282,7 @@ async def on_message(message):
             reply = await Teyvatdle.command(message, 2)
 
         case 'stop':
-            reply = await Teyvatdle.command(message, 3)
+            reply = await Games.off_endless(message)
 
         case _:
             msg_args = message.content.lower().split()
