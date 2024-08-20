@@ -7,6 +7,8 @@ import teyvatdle as tvd
 GUILD_ID = os.getenv('GUILD_ID') # debugging server id
 
 class Teyvatdle:
+    start_reply = 'guess the character from Teyvat !'
+
     help = """Guess a character from Teyvat (Genshin Impact) by typing their names!\
             \nThe characteristics of each guess will be colored like this:\
             \n> 🟩 GREEN squares = correct characteristics (in common)
@@ -14,14 +16,15 @@ class Teyvatdle:
                 > 🟥 RED squares = incorrect characteristics"""
 
     @staticmethod
-    async def command(com, type = 0):
+    async def command(com, type = 0, **options):
         """Handle potential commands related to the game,
         checking the channel and user who sent it.
         
         Args:
             com (Union[Interaction, Message]): The potential command.
             type (int, optional): The type of potential command:\
-                0 (start game) | 1 (guess attempt) | 2 (give up/force end).
+                0 (start game) | 1 (guess attempt) | 2 (give up/force end) | \
+                3 (turn off endless mode).
             
         Returns:
             The bot's reply `str` if any, False otherwise.
@@ -36,12 +39,12 @@ class Teyvatdle:
         if type:
             reply = False
         else:
-            reply = 'guess the character from Teyvat !'
+            reply = Teyvatdle.start_reply
 
         ingame_replies = {
             # Default replies when a game is already active in the channel.
             # `False` keys for users that aren't players yet and viceversa.
-            0: {False: str(reply) + ' (game already started in this channel)',
+            0: {False: Teyvatdle.start_reply + ' (game already started in this channel)',
                 True: 'say "i give up" before guessing another character'},
 
             1: {False: False,
@@ -49,6 +52,9 @@ class Teyvatdle:
 
             2: {False: "don't give up without even trying!",
                 True: False},
+
+            3: {False: False,
+                True: "> -# **endless mode turned off**"},
 
             }
         for tdle in tdle_games:
@@ -63,25 +69,44 @@ class Teyvatdle:
                 reply = await tdle.guess(com)
                 if reply:
                     await com.add_reaction('⭐')
+                    await channel.send(reply)
+                    reply = False
                     end_game = True
 
             elif type == 2 and user in tdle.players:
                 await channel.send('lmao ok')
                 await tdle.respond(tdle.character.name)
                 end_game = True
+
+            elif type == 3:
+                if not tdle.endless:
+                    reply = False
+                elif user in tdle.players:
+                    tdle.endless = False
             
             if end_game:
+                if tdle.endless:
+                    # Start next game if it was "endless"
+                    tdle_games.append(Teyvatdle(channel, user, True))
+                    await channel.send('> -# *Send "stop" to turn off endless mode*')
+                    reply = Teyvatdle.start_reply
                 tdle_games.remove(tdle)
             break
 
         else: # When no game is active in the context channel
             if type == 0: # Start new game
-                tdle_games.append(Teyvatdle(channel, user))
+                endless = False
+                try:
+                    endless = bool(options["endless"].value)
+                except (KeyError, AttributeError):
+                    pass
+                tdle_games.append(Teyvatdle(channel, user, endless))
                 
         return reply
 
-    def __init__(self, channel, user):
+    def __init__(self, channel, user, endless: bool = False):
         self.channel = channel
+        self.endless = endless
         self.start_time = time.time()
         self.attempts = 0
         self.score = ""
@@ -179,8 +204,45 @@ async def help(interaction: discord.Interaction, command: app_commands.Choice[st
     name="teyvatdle",
     description="start a teyvatdle game",
 )
-async def tdle(interaction: discord.Interaction):
-    await interaction.response.send_message(await Teyvatdle.command(interaction))
+@app_commands.describe(endless = "and a new one automatically after each ends")
+@app_commands.describe(thread = "inside a new thread")
+@app_commands.choices(endless=[app_commands.Choice(name="True", value="1"),
+                              app_commands.Choice(name="False", value=""),
+                            ])
+@app_commands.choices(thread=[app_commands.Choice(name="True", value="1"),
+                              app_commands.Choice(name="False", value=""),
+                            ])
+async def tdle(interaction: discord.Interaction, endless: app_commands.Choice[str] | None, thread: app_commands.Choice[str] | None):
+    await interaction.response.send_message(
+        await Teyvatdle.command(interaction, endless=endless)
+    )
+    try:
+        msg = await interaction.original_response()
+        if bool(thread.value) and msg.content == Teyvatdle.start_reply:
+            new_channel = await interaction.channel.create_thread(
+                name="teyvatdle",
+                message=msg,
+                type=discord.ChannelType.public_thread,
+                reason="for a Teyvatdle game"
+            )
+            tdle_games[-1].channel = new_channel
+    except AttributeError:
+        pass
+
+@tree.command(
+    name="stop",
+    description="turn off endless mode for current game",
+)
+async def stop(interaction: discord.Interaction):
+    for games in [tdle_games]:
+        for game in games:
+            if game.channel != interaction.channel:
+                continue
+            
+            await interaction.response.send_message(
+                await game.command(interaction, 3)
+            )
+            break
 
 
 @client.event
@@ -202,6 +264,9 @@ async def on_message(message):
 
         case 'i give up' | 'igu':
             reply = await Teyvatdle.command(message, 2)
+
+        case 'stop':
+            reply = await Teyvatdle.command(message, 3)
 
         case _:
             msg_args = message.content.lower().split()
