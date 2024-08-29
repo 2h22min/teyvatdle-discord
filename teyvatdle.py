@@ -113,18 +113,18 @@ class Character:
     def __str__(self):
         return self.name
     
-    @staticmethod
-    def random():
-        return random.choice(getCharacters())
+    @classmethod
+    def random(cls):
+        return random.choice(getCharacters(cls))
     
-    @staticmethod
-    def exists(name):
-        return typoguesser.guessFrom(getNames(), name)
+    @classmethod
+    def exists(cls, name):
+        return typoguesser.guessFrom(getNames(cls), name)
     
-    @staticmethod
-    def completeName(name):
+    @classmethod
+    def completeName(cls, name):
         matches = 0
-        for char in getCharacters():
+        for char in getCharacters(cls):
             if name in char.name:
                 matches += 1
                 fullname = char.name
@@ -135,6 +135,8 @@ class Character:
     
 
 class GenshinChar(Character):
+    table_name = "genshin"
+
     attributes = Character.attributes + ["nation", "height", "vision", "weapon"]
     attributes.append(attributes.pop(1)) # Move the version attribute to the end
 
@@ -179,16 +181,31 @@ class GenshinChar(Character):
         return False
 
 
-def insertCharacter(name, vision, weapon, nation, height, version):
+def insertCharacter(vg_table, **kvalues):
     try:
-        con = sqlite3.connect('genshindle.db')
-        c = con.cursor()
+        keys = ""
+        quantity = ""
+        values = []
+        for key in kvalues:
+            keys += f"{key}, "
+            quantity += "?, "
+            values.append(kvalues[key])
+        else:
+            try:
+                keys = keys[:-2]
+                quantity = quantity[:-2]
+                values = tuple(values)
+            except Exception as e:
+                print(e)
+                return
 
-        c.execute("""
-            INSERT INTO Character
-                (name, height, vision, weapon, nation, version)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,(name, height, vision, weapon, nation, version))
+        con = sqlite3.connect('charsdle.db')
+        c = con.cursor()
+        c.execute(f"""
+            INSERT INTO {vg_table}
+                ({keys})
+            VALUES ({quantity})
+            """, values)
         con.commit()
             
     finally:    
@@ -196,32 +213,32 @@ def insertCharacter(name, vision, weapon, nation, height, version):
         con.close()
     
 
-def getCharacters(**conditions):
+def getCharacters(vg, **conditions):
     try:
-        con = sqlite3.connect('genshindle.db')
+        con = sqlite3.connect('charsdle.db')
         c = con.cursor()
         
         keys = "name LIKE ?"
         values = ['%']
         for key in conditions:
-            if key in GenshinChar.attributes:
+            if key in vg.attributes:
                 keys += f" AND {key} = ?"
                 values.append(conditions[key].title())
 
         c.execute(f"""
             SELECT *
-            FROM Character 
+            FROM {vg.table_name}
             WHERE {keys}
             """, tuple(values))
                 
-        return [GenshinChar(*attrs) for attrs in c.fetchall()]
+        return [vg(*attrs) for attrs in c.fetchall()]
     finally:    
         c.close()
         con.close()
 
 
-def getNames():
-    names = [char.name for char in getCharacters()]
+def getNames(vg):
+    names = [char.name for char in getCharacters(vg)]
     for name in names:
         parts = name.split()
         if len(parts) > 1:
@@ -288,4 +305,6 @@ if __name__ == "__main__":
     # ]:
     #     print(name, typoguesser.guessFrom(getNames(), name, max_missing=2), sep=": ")
 
-    print(GenshinChar.random().compareTo(GenshinChar.random()))
+    # print(GenshinChar.random().compareTo(GenshinChar.random()))
+
+    print(getCharacters(GenshinChar))
