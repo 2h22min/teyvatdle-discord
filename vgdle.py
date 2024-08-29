@@ -124,7 +124,7 @@ class Character:
     @classmethod
     def completeName(cls, name):
         matches = 0
-        for char in getCharacters(cls):
+        for char in cls.getCharacters():
             if name in char.name:
                 matches += 1
                 fullname = char.name
@@ -132,6 +132,74 @@ class Character:
         if matches == 1:
             return fullname
         return False
+    
+    # DB methods
+
+    @classmethod
+    def insertCharacter(vg, **kvalues):
+        try:
+            keys = ""
+            quantity = ""
+            values = []
+            for key in kvalues:
+                keys += f"{key}, "
+                quantity += "?, "
+                values.append(kvalues[key])
+            else:
+                try:
+                    keys = keys[:-2]
+                    quantity = quantity[:-2]
+                    values = tuple(values)
+                except Exception as e:
+                    print(e)
+                    return
+
+            con = sqlite3.connect('charsdle.db')
+            c = con.cursor()
+            c.execute(f"""
+                INSERT INTO {vg.table_name}
+                    ({keys})
+                VALUES ({quantity})
+                """, values)
+            con.commit()
+                
+        finally:    
+            c.close()
+            con.close()
+        
+    @classmethod
+    def getCharacters(vg, **conditions):
+        try:
+            con = sqlite3.connect('charsdle.db')
+            c = con.cursor()
+            
+            keys = "name LIKE ?"
+            values = ['%']
+            for key in conditions:
+                if key in vg.attributes:
+                    keys += f" AND {key} = ?"
+                    values.append(conditions[key].title())
+
+            c.execute(f"""
+                SELECT *
+                FROM {vg.table_name}
+                WHERE {keys}
+                """, tuple(values))
+                    
+            return [vg(*attrs) for attrs in c.fetchall()]
+        finally:    
+            c.close()
+            con.close()
+
+    @classmethod
+    def getNames(vg):
+        names = [char.name for char in vg.getCharacters()]
+        for name in names:
+            parts = name.split()
+            if len(parts) > 1:
+                names += parts
+
+        return sorted(names)
     
 
 class GenshinChar(Character):
@@ -179,72 +247,6 @@ class GenshinChar(Character):
             return card["img"]
 
         return False
-
-
-def insertCharacter(vg_table, **kvalues):
-    try:
-        keys = ""
-        quantity = ""
-        values = []
-        for key in kvalues:
-            keys += f"{key}, "
-            quantity += "?, "
-            values.append(kvalues[key])
-        else:
-            try:
-                keys = keys[:-2]
-                quantity = quantity[:-2]
-                values = tuple(values)
-            except Exception as e:
-                print(e)
-                return
-
-        con = sqlite3.connect('charsdle.db')
-        c = con.cursor()
-        c.execute(f"""
-            INSERT INTO {vg_table}
-                ({keys})
-            VALUES ({quantity})
-            """, values)
-        con.commit()
-            
-    finally:    
-        c.close()
-        con.close()
-    
-
-def getCharacters(vg, **conditions):
-    try:
-        con = sqlite3.connect('charsdle.db')
-        c = con.cursor()
-        
-        keys = "name LIKE ?"
-        values = ['%']
-        for key in conditions:
-            if key in vg.attributes:
-                keys += f" AND {key} = ?"
-                values.append(conditions[key].title())
-
-        c.execute(f"""
-            SELECT *
-            FROM {vg.table_name}
-            WHERE {keys}
-            """, tuple(values))
-                
-        return [vg(*attrs) for attrs in c.fetchall()]
-    finally:    
-        c.close()
-        con.close()
-
-
-def getNames(vg):
-    names = [char.name for char in getCharacters(vg)]
-    for name in names:
-        parts = name.split()
-        if len(parts) > 1:
-            names += parts
-
-    return sorted(names)
 
 
 if __name__ == "__main__":
@@ -307,4 +309,4 @@ if __name__ == "__main__":
 
     # print(GenshinChar.random().compareTo(GenshinChar.random()))
 
-    print(getCharacters(GenshinChar))
+    print(GenshinChar.getCharacters())
