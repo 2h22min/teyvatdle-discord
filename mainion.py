@@ -180,7 +180,7 @@ Guessed after {duration} seconds and {self.attempts} attempts"
             return reply
 
     async def respond(self, to_charname):
-        guessed_char = vgdle.getCharacters(vgdle.GenshinChar, name=to_charname)[0]
+        guessed_char = vgdle.GenshinChar.getCharacters(name=to_charname)[0]
         comparison = self.character.compareTo(guessed_char)
 
         with open("temp/tvd_guess.png", 'rb') as image:
