@@ -2,7 +2,7 @@ import os
 import time
 import discord
 from discord import app_commands
-import teyvatdle as tvd
+import vgdle
 
 GUILD_ID = os.getenv('GUILD_ID') # debugging server id
 
@@ -134,15 +134,15 @@ class Teyvatdle:
         self.start_time = time.time()
         self.attempts = 0
         self.score = ""
-        self.character = tvd.Character.random()
+        self.character = vgdle.GenshinChar.random()
         self.players = [user]
 
     async def guess(self, message):
-        char_name = tvd.Character.exists(message.content)
+        char_name = vgdle.GenshinChar.exists(message.content)
         if not char_name:
             return False
         
-        char_name = tvd.Character.completeName(char_name)
+        char_name = vgdle.GenshinChar.completeName(char_name)
         if not char_name:
             return False
         
@@ -180,7 +180,7 @@ Guessed after {duration} seconds and {self.attempts} attempts"
             return reply
 
     async def respond(self, to_charname):
-        guessed_char = tvd.getCharacters(name=to_charname)[0]
+        guessed_char = vgdle.getCharacters(vgdle.GenshinChar, name=to_charname)[0]
         comparison = self.character.compareTo(guessed_char)
 
         with open("temp/tvd_guess.png", 'rb') as image:
