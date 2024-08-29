@@ -115,11 +115,11 @@ class Character:
     
     @classmethod
     def random(cls):
-        return random.choice(getCharacters(cls))
+        return random.choice(cls.getCharacters())
     
     @classmethod
     def exists(cls, name):
-        return typoguesser.guessFrom(getNames(cls), name)
+        return typoguesser.guessFrom(cls.getNames(), name)
     
     @classmethod
     def completeName(cls, name):
