@@ -69,7 +69,6 @@ class Teyvatdle:
                 # If potential guess attempt
                 reply = await tdle.guess(com)
                 if reply:
-                    tdle.ended = True
                     await com.add_reaction('⭐')
                     await channel.send(reply)
                     reply = False
@@ -164,6 +163,7 @@ class Teyvatdle:
 
         correct = not any(value != 1 for value in comparison.values())
         if correct:
+            self.ended = True
             end_time = time.time()
             duration = int( end_time - self.start_time)
             winner = message.author.name
