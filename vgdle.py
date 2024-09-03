@@ -42,7 +42,7 @@ class Character:
 
             c["img"] = self.textCard(attr, c, size, background, guess)
             if not c["img"]:
-                c["foreground"] = Image.open(f"icons/{guess_dict[attr].replace(" ","_")}_Icon.png").convert('RGBA')
+                c["foreground"] = Image.open(f"icons/{self.game}/{guess_dict[attr].replace(" ","_")}_Icon.png").convert('RGBA')
                 c["background"] = Image.new("RGBA", size, background)
                 c["img"] = Image.alpha_composite(c["background"], c["foreground"])
 
@@ -157,7 +157,7 @@ class Character:
             con = sqlite3.connect('charsdle.db')
             c = con.cursor()
             c.execute(f"""
-                INSERT INTO {vg.table_name}
+                INSERT INTO {vg.game}
                     ({keys})
                 VALUES ({quantity})
                 """, values)
@@ -182,7 +182,7 @@ class Character:
 
             c.execute(f"""
                 SELECT *
-                FROM {vg.table_name}
+                FROM {vg.game}
                 WHERE {keys}
                 """, tuple(values))
                     
@@ -203,7 +203,7 @@ class Character:
     
 
 class GenshinChar(Character):
-    table_name = "genshin"
+    game = "genshin"
 
     attributes = Character.attributes + ["nation", "height", "vision", "weapon"]
     attributes.append(attributes.pop(1)) # Move the version attribute to the end
@@ -250,7 +250,7 @@ class GenshinChar(Character):
     
 
 class ZZZChar(Character):
-    table_name = "zzz"
+    game = "zzz"
 
     attributes = Character.attributes + ["attribute", "specialty", "faction"]
     attributes.append(attributes.pop(1)) # Move the version attribute to the end
