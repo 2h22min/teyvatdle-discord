@@ -247,6 +247,25 @@ class GenshinChar(Character):
             return card["img"]
 
         return False
+    
+
+class ZZZChar(Character):
+    table_name = "zzz"
+
+    attributes = Character.attributes + ["attribute", "specialty", "faction"]
+    attributes.append(attributes.pop(1)) # Move the version attribute to the end
+
+    def __init__(self, ID, name, attribute, specialty, faction, version):
+        super().__init__(ID, name, version)
+        self.attribute = attribute
+        self.specialty = specialty
+        self.faction = faction
+
+    def compareTo(self, guess):
+        common = super().compareTo(guess)
+
+        self.newCompareImage(guess, common)
+        return common
 
 
 if __name__ == "__main__":
@@ -309,4 +328,6 @@ if __name__ == "__main__":
 
     # print(GenshinChar.random().compareTo(GenshinChar.random()))
 
-    print(GenshinChar.getCharacters())
+    # print(GenshinChar.getCharacters())
+
+    ZZZChar.insertCharacter()
