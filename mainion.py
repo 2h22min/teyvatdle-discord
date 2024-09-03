@@ -60,20 +60,19 @@ class Teyvatdle:
 
             }
         for tdle in Teyvatdle.games:
-            if channel != tdle.channel:
+            if channel != tdle.channel or tdle.ended:
                 continue
 
             reply = ingame_replies[type][user in tdle.players]
 
-            end_game = False
             if type == 1:
                 # If potential guess attempt
                 reply = await tdle.guess(com)
                 if reply:
+                    tdle.ended = True
                     await com.add_reaction('⭐')
                     await channel.send(reply)
                     reply = False
-                    end_game = True
 
                     try:
                         tdle.streak["wins"] += 1
@@ -81,9 +80,9 @@ class Teyvatdle:
                         pass
 
             elif type == 2 and user in tdle.players:
+                tdle.ended = True
                 await channel.send('lmao ok')
                 await tdle.respond(tdle.character.name)
-                end_game = True
 
             elif type == 3:
                 if not tdle.endless:
@@ -92,7 +91,7 @@ class Teyvatdle:
                     tdle.endless = False
                     tdle.streak["last_game"] = True
             
-            if end_game:
+            if tdle.ended:
                 if tdle.endless:
                     # Start next game if it was "endless"
                     Teyvatdle.games.append(Teyvatdle(channel, user, True))
@@ -132,6 +131,7 @@ class Teyvatdle:
         self.channel = channel
         self.endless = endless
         self.start_time = time.time()
+        self.ended = False
         self.attempts = 0
         self.score = ""
         self.character = tvd.Character.random()
